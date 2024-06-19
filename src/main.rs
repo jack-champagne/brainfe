@@ -1,6 +1,11 @@
 // a brainf*ck interpreter
 
-use std::{env, fs, io::{self, Read}, path::Path, process};
+use std::{
+    env, fs,
+    io::{self, Read},
+    path::Path,
+    process,
+};
 
 #[derive(PartialEq, Clone)]
 enum Token {
@@ -25,8 +30,9 @@ fn main() {
 }
 
 fn program_to_tokens(brainfe_program: String) -> Vec<Token> {
-    brainfe_program.chars().map(|c|
-        match c {
+    brainfe_program
+        .chars()
+        .map(|c| match c {
             '>' => Token::IncrementDataPointer,
             '<' => Token::DecrementDataPointer,
             '+' => Token::IncrementByte,
@@ -36,11 +42,11 @@ fn program_to_tokens(brainfe_program: String) -> Vec<Token> {
             '[' => Token::LeftBracket,
             ']' => Token::RightBracket,
             c => {
-                    println!("Invalid character {c} in program.");
-                    process::exit(1);
-                }
-        }
-    ).collect()
+                println!("Invalid character {c} in program.");
+                process::exit(1);
+            }
+        })
+        .collect()
 }
 
 fn run_program(mut tape: Vec<u8>, tokens: Vec<Token>) {
@@ -54,44 +60,86 @@ fn run_program(mut tape: Vec<u8>, tokens: Vec<Token>) {
                     tape.resize(tape.len() + 1, 0);
                 }
                 data_pointer += 1;
-            },
+            }
             Token::DecrementDataPointer => {
                 if data_pointer == 0 {
                     panic!("data pointer became negative:\n{instruction_pointer}");
                 }
                 data_pointer -= 1;
-            },
+            }
             Token::IncrementByte => tape[data_pointer] += 1,
             Token::DecrementByte => tape[data_pointer] -= 1,
             Token::OutputByte => print!("{}", tape[data_pointer] as char),
-            Token::InputByte => {
-                match io::stdin().bytes().next() {
-                    Some(Ok(c)) => tape[data_pointer] = c,
-                    Some(Err(_)) => panic!("could not parse character"),
-                    None => panic!("reached EOF"),
-                }
+            Token::InputByte => match io::stdin().bytes().next() {
+                Some(Ok(c)) => tape[data_pointer] = c,
+                Some(Err(_)) => panic!("could not parse character"),
+                None => panic!("reached EOF"),
             },
             Token::LeftBracket => {
                 if tape[data_pointer] == 0 {
                     // skip to corresponding ']' or right bracket
-                    instruction_pointer += tokens[instruction_pointer..].iter().position(|token| *token == Token::RightBracket).expect("unmatched [");
+                    let (offset, balance) = tokens[instruction_pointer..]
+                        .iter()
+                        .enumerate()
+                        .map(|(i, e)| match *e {
+                            Token::RightBracket => (i, -1),
+                            Token::LeftBracket => (i, 1),
+                            _ => (i, 0),
+                        })
+                        .skip(1)
+                        .fold(
+                            (0, 1),
+                            |(i, v), (index, counter)| {
+                                if v == 0 {
+                                    (i, v)
+                                } else {
+                                    (index, v + counter)
+                                }
+                            },
+                        );
+                    if balance != 0 {
+                        panic!("Unmatched [")
+                    } else {
+                        instruction_pointer += offset
+                    }
                 }
             }
             Token::RightBracket => {
                 if tape[data_pointer] != 0 {
                     // skip to corresponding ']' or right bracket
-                    let search_slice = &mut tokens.clone();
-                    search_slice[..instruction_pointer].reverse();
+                    let search_slice = &mut tokens.clone()[0..=instruction_pointer];
+                    search_slice.reverse();
 
-                    instruction_pointer -= search_slice.iter().position(|token| *token == Token::RightBracket).expect("unmatched [");
+                    let (offset, balance) = search_slice
+                        .iter()
+                        .enumerate()
+                        .map(|(i, e)| match *e {
+                            Token::RightBracket => (i, 1),
+                            Token::LeftBracket => (i, -1),
+                            _ => (i, 0),
+                        })
+                        .skip(1)
+                        .fold(
+                            (0, 1),
+                            |(i, v), (index, counter)| {
+                                if v == 0 {
+                                    (i, v)
+                                } else {
+                                    (index, v + counter)
+                                }
+                            },
+                        );
+                    if balance != 0 {
+                        panic!("Unmatched ]")
+                    } else {
+                        instruction_pointer -= offset
+                    }
                 }
             }
         }
-        println!("{instruction_pointer}, {data_pointer}");
         instruction_pointer += 1;
     }
 }
-
 
 fn get_program_string(args: Vec<String>) -> String {
     if args.len() < 1 {
@@ -100,16 +148,14 @@ fn get_program_string(args: Vec<String>) -> String {
 
     let filename = &args[1];
     match Path::try_exists(Path::new(filename)) {
-        Ok(true) => {
-            fs::read_to_string(filename).expect("could not read contents of file")
-        },
+        Ok(true) => fs::read_to_string(filename).expect("could not read contents of file"),
         Ok(false) => {
             println!("Not enough arguments");
             process::exit(1);
-        },
+        }
         Err(_) => {
             println!("Not enough arguments");
             process::exit(1);
-        },
+        }
     }
 }
