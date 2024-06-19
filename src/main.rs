@@ -67,8 +67,20 @@ fn run_program(mut tape: Vec<u8>, tokens: Vec<Token>) {
                 }
                 data_pointer -= 1;
             }
-            Token::IncrementByte => tape[data_pointer] += 1,
-            Token::DecrementByte => tape[data_pointer] -= 1,
+            Token::IncrementByte => {
+                if tape[data_pointer] == 255 {
+                    tape[data_pointer] = 0;
+                } else {
+                    tape[data_pointer] += 1;
+                }
+            } 
+            Token::DecrementByte => {
+                if tape[data_pointer] == 0 {
+                    tape[data_pointer] = 255;
+                } else {
+                    tape[data_pointer] -= 1;
+                }
+            } 
             Token::OutputByte => print!("{}", tape[data_pointer] as char),
             Token::InputByte => match io::stdin().bytes().next() {
                 Some(Ok(c)) => tape[data_pointer] = c,
