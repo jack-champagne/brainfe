@@ -56,8 +56,8 @@ fn run_program(mut tape: Vec<u8>, tokens: Vec<Token>) {
         match tokens[instruction_pointer] {
             Token::IncrementDataPointer => {
                 if data_pointer == tape.len() {
-                    // really stupid but memor minimal as possible.
-                    tape.resize(tape.len() + 1, 0);
+                    // really stupid but memory minimal as possible.
+                    tape.append(&mut vec![0, 0]);
                 }
                 data_pointer += 1;
             }
